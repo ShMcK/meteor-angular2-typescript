@@ -17,11 +17,11 @@ var SETTINGS = {
 
 /**
  * Compile code, get output data, module name, and path name
- * @param fileType {string} // '.ts' or '.ng.ts'
- * @param settings {object}
- * @param compileStep {object}
+ * @param compileStep {object} // file to be compiled
+ * @param settings {object} // SETTINGS (angular2, meteor)
  */
-function compile(fileType, settings, compileStep) {
+function compile(compileStep, settings) {
+  console.log(settings);
   // path to file from app root
   var inputPath = compileStep.inputPath;
   // grab the code as a string
@@ -29,15 +29,18 @@ function compile(fileType, settings, compileStep) {
   // sourcemaps file path
   var fileName = compileStep.pathForSourceMap;
   // transpiled code
-  var output = typescript.transpile(sourceCode, settings, fileName);
+  var transpiled = typescript.transpile(sourceCode, settings, fileName);
   // module name stripped of path
-  var moduleName = inputPath.replace(/\\/, '/').replace(fileType, '');
+  var moduleName = inputPath.replace(/\\/, '/').replace('.ts', '');
+  // sub in module name
+  var data = transpiled.replace("System.register([", 'System.register("' + moduleName + '",[');
+  var jsPath = inputPath.replace('.ts', '.js');
 
-  return {
-    path: inputPath.replace(fileType, '.js'),
-    data: output.replace("System.register([", 'System.register("' + moduleName + '",['),
+  compileStep.addJavaScript({
+    path: jsPath,
+    data: data,
     sourcePath: inputPath
-  };
+  });
 }
 
 Plugin.registerSourceHandler('ts', function (compileStep) {
@@ -48,11 +51,10 @@ Plugin.registerSourceHandler('ts', function (compileStep) {
   if (dTs) {
     return true;
   }
-  // treat clientside .ng.ts differently from .ts
-  var ngTs = !!inputPath.match(new RegExp(/.ng.ts$/i));
-  var compiled = ngTs ?
-    compile('.ng.ts', SETTINGS.angular2, compileStep) :
-    compile('.ts', SETTINGS.meteor, compileStep);
-
-  compileStep.addJavaScript(compiled);
+  // treat clientside .ts differently from .ts
+  //var isClient = !!inputPath.match(new RegExp(/client\/$/i));
+  //var compiled = isClient ?
+  //  compile(compileStep, SETTINGS.angular2) :
+  //  compile(compileStep, SETTINGS.meteor);
+  compile(compileStep, SETTINGS.angular2)
 });
